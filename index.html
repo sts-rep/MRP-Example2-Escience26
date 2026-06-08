@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MRP Instance — aDNA Geographic-Origin Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16314a;          /* deep academic blue */
+    --blue:#2f6f9f;         /* procedure / product stroke */
+    --blue-soft:#7ba6c4;
+    --proc-fill:#eaf2f8;
+    --prod-fill:#ffffff;
+    --amber:#b06f1e;        /* contextual knowledge */
+    --amber-fill:#fbf2e4;
+    --gray:#8a93a0;         /* by-product */
+    --gray-fill:#f0f1f3;
+    --paper:#f6f3ec;
+    --line:#cfd6dd;
+    --text:#21303d;
+    --muted:#5e6b78;
+    --hl:#d4731f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    color:var(--text);
+    background:
+      linear-gradient(var(--paper),var(--paper)),
+      repeating-linear-gradient(0deg,rgba(22,49,74,.025) 0 1px,transparent 1px 26px),
+      repeating-linear-gradient(90deg,rgba(22,49,74,.025) 0 1px,transparent 1px 26px);
+    background-blend-mode:normal;
+  }
+  header{
+    padding:30px 34px 20px;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#fbfaf6,#f6f3ec);
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--blue);margin:0 0 8px;
+  }
+  h1{
+    font-family:"Fraunces",serif;font-weight:600;
+    font-size:30px;line-height:1.1;margin:0 0 6px;color:var(--ink);
+    letter-spacing:-.01em;
+  }
+  h1 em{font-style:italic;color:var(--blue)}
+  .sub{margin:0;max-width:74ch;color:var(--muted);font-size:14.5px;line-height:1.5}
+  .sub b{color:var(--text);font-weight:600}
+
+  .bar{
+    display:flex;flex-wrap:wrap;gap:18px 26px;align-items:center;
+    padding:16px 34px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:5;
+    background:rgba(246,243,236,.92);backdrop-filter:blur(6px);
+  }
+  .group{display:flex;align-items:center;gap:8px}
+  .group > .lbl{
+    font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-right:2px;
+  }
+  .seg{display:inline-flex;border:1px solid var(--blue);border-radius:8px;overflow:hidden}
+  .seg button{
+    font-family:"IBM Plex Sans",sans-serif;font-size:13px;font-weight:500;
+    border:0;background:transparent;color:var(--blue);
+    padding:8px 15px;cursor:pointer;transition:.18s;line-height:1.1;
+  }
+  .seg button .k{font-family:"IBM Plex Mono",monospace;font-weight:600;margin-right:5px}
+  .seg button + button{border-left:1px solid var(--blue)}
+  .seg button.on{background:var(--blue);color:#fff}
+  .seg button:not(.on):hover{background:#e2edf4}
+
+  .toggle{display:inline-flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+  .toggle input{position:absolute;opacity:0;pointer-events:none}
+  .switch{width:38px;height:21px;border-radius:20px;background:#c4ccd3;position:relative;transition:.2s;flex:0 0 auto}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .toggle input:checked + .switch{background:var(--blue)}
+  .toggle input:checked + .switch::after{transform:translateX(17px)}
+  .toggle .t{font-size:13px;color:var(--text)}
+
+  .stage{padding:6px 0 0}
+  .scroller{overflow-x:auto;overflow-y:hidden}
+  svg{display:block}
+  svg text{font-family:"IBM Plex Sans",sans-serif;fill:var(--text)}
+  .node{cursor:pointer}
+  .node .body{transition:filter .15s, stroke-width .15s}
+  .node:hover .body{filter:drop-shadow(0 3px 7px rgba(22,49,74,.18))}
+  .node.sel .body{stroke-width:3.2}
+  .nlabel{font-size:12.5px;font-weight:500;pointer-events:none}
+  .ntag{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.05em;pointer-events:none}
+  .l4badge{font-family:"IBM Plex Mono",monospace;font-size:9.5px;fill:#fff;font-weight:500}
+
+  /* Legend + detail */
+  .panels{display:grid;grid-template-columns:1fr 360px;gap:0;border-top:1px solid var(--line)}
+  @media(max-width:900px){.panels{grid-template-columns:1fr}}
+  .legend{padding:18px 34px;border-right:1px solid var(--line)}
+  .legend h3,.detail h3{
+    font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--blue);margin:0 0 12px;font-weight:600;
+  }
+  .lg{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 22px}
+  .lg div{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)}
+  .lg svg{flex:0 0 auto}
+  .detail{padding:18px 24px 26px}
+  .detail .dname{font-family:"Fraunces",serif;font-size:19px;color:var(--ink);font-weight:600;margin:2px 0 2px;line-height:1.15}
+  .detail .dkind{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px}
+  .detail .dkind .mat{color:var(--blue)}
+  .detail .dkind .mat.soft{color:var(--hl)}
+  .layers{border-top:1px solid var(--line)}
+  .lrow{display:grid;grid-template-columns:42px 1fr;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .lrow .lk{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:var(--blue);padding-top:1px}
+  .lrow .lk.empty{color:var(--gray)}
+  .lrow .lv{font-size:13px;line-height:1.4}
+  .lrow .lv.empty{color:var(--gray);font-style:italic}
+  .note{margin-top:13px;font-size:12.5px;line-height:1.45;color:var(--muted);
+    border-left:3px solid var(--amber);padding:2px 0 2px 11px;background:var(--amber-fill);border-radius:0 5px 5px 0;padding:8px 11px}
+  .ref{margin-top:10px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--muted)}
+  .hint{color:var(--muted);font-size:13px;line-height:1.5}
+  .foot{padding:14px 34px 30px;color:var(--muted);font-size:11.5px;border-top:1px solid var(--line);font-family:"IBM Plex Mono",monospace}
+</style>
+</head>
+<body>
+<header>
+  <p class="eyebrow">Modular Research Processes · Illustration scenario (from a codebase)</p>
+  <h1>aDNA Geographic-Origin Estimation — <em>as an MRP instance</em></h1>
+  <p class="sub">Retrospective reconstruction of an ancient-DNA machine-learning pipeline from its <b>codebase</b>. Because it is recovered from implementation, almost every procedure carries an <b>L4</b> code location (toggle the overlay), and the many written artifacts that no later step consumes are shown as <b>by-products</b> below the spine. Toggle between the <b>Vision (L1)</b> overview and the full <b>Approach (L2)</b> pipeline; click any module for its layer-wise breakdown.</p>
+</header>
+
+<div class="bar">
+  <div class="group">
+    <span class="lbl">Resolution</span>
+    <span class="seg" id="viewSeg">
+      <button data-view="L1"><span class="k">L1</span>Vision</button>
+      <button data-view="L2" class="on"><span class="k">L2</span>Approach</button>
+    </span>
+  </div>
+  <label class="toggle">
+    <input type="checkbox" id="l4toggle">
+    <span class="switch"></span>
+    <span class="t">Overlay <b>L4</b> implementation (tools)</span>
+  </label>
+  <div class="group">
+    <span class="lbl">Zoom</span>
+    <span class="seg" id="zoomSeg">
+      <button data-zoom="fit" class="on">Fit</button>
+      <button data-zoom="detail">Detail</button>
+    </span>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="scroller" id="scroller">
+    <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+</div>
+
+<div class="panels">
+  <div class="legend">
+    <h3>Legend</h3>
+    <div class="lg">
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><path d="M11,4 H35 L43,15 L35,26 H11 L3,15 Z" fill="#fff" stroke="#2f6f9f" stroke-width="2"/></svg> Product — <b style="color:#2f6f9f;margin-left:3px">materialized (hard)</b></div>
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><path d="M11,4 H35 L43,15 L35,26 H11 L3,15 Z" fill="#fff" stroke="#2f6f9f" stroke-width="2" stroke-dasharray="5 4"/></svg> Product — <b style="color:#d4731f;margin-left:3px">specified (soft)</b></div>
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><rect x="4" y="5" width="38" height="20" rx="6" fill="#eaf2f8" stroke="#2f6f9f" stroke-width="2"/></svg> Procedure (active step)</div>
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><path d="M11,4 H35 L43,15 L35,26 H11 L3,15 Z" fill="#fbf2e4" stroke="#b06f1e" stroke-width="2" stroke-dasharray="5 4"/></svg> Contextual knowledge (fan-in)</div>
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><path d="M11,4 H35 L43,15 L35,26 H11 L3,15 Z" fill="#f0f1f3" stroke="#8a93a0" stroke-width="2"/></svg> By-product (leaves instance)</div>
+      <div><svg width="46" height="30" viewBox="0 0 46 30"><line x1="4" y1="15" x2="38" y2="15" stroke="#2f6f9f" stroke-width="2"/><path d="M38,15 l-7,-4 v8 z" fill="#2f6f9f"/></svg> Product / data flow</div>
+    </div>
+  </div>
+  <div class="detail" id="detail">
+    <h3>Module detail</h3>
+    <p class="hint">Select a module in the graph to see its core/intent across the four layers of granularity, its materialization, and the place in Kneisel (2013) it was reconstructed from.</p>
+  </div>
+</div>
+
+<div class="foot">Source: reconstructed aDNA geographic-origin pipeline (codebase). · Framework: Strohm et al., MRP (eScience, in prep.).</div>
+
+<script>
+/* ---------- module details (shared dictionary) ---------- */
+const D = {
+  /* ---- source products (reused, materialized) ---- */
+  evec:{name:"PCA eigenvectors (smartPCA)",kind:"product",mat:1,
+    l1:"Genomic dimensionality reduction of the samples",
+    l2:"Eigenvectors from a principal-component analysis of the aDNA samples",
+    l3:"(encapsulated by smartPCA)",l4:".evec / evecf",
+    note:"Reused materialized source product from an external tool. smartPCA is specified straight from Approach (PCA) to Implementation, leaving the Algorithm layer empty — the tool-driven layer gap. Its internal products (e.g. the correlation matrix) are not exposed as connectors; breaking that encapsulation to expose one is the alternative exploration of the eScience aDNA case, not drawn here.",
+    ref:"smartPCA output · pipeline input"},
+  meta:{name:"Sample metadata",kind:"product",mat:1,
+    l1:"Contextual information per sample",l2:"Per-sample metadata table (Excel)",l3:"",l4:"metaf (xlsx)",
+    note:"Reused materialized source product, fused with the eigenvectors at load time.",ref:"pipeline input"},
+
+  /* ---- spine procedures ---- */
+  n01:{name:"Init & IO setup",kind:"procedure",l1:"Set up the run",l2:"Initialise configuration, paths and IO",l3:"",l4:"Lines 7–94",note:"",ref:"aDNA pipeline"},
+  n02:{name:"Load & merge data",kind:"procedure",l1:"Assemble one input table",l2:"Load eigenvectors + metadata and merge them",l3:"",l4:"Lines 95–146",
+    note:"Multi-input merge (data fusion): combines the smartPCA eigenvectors with the sample metadata into one dataset.",ref:"aDNA pipeline"},
+  n03:{name:"Filter training samples",kind:"procedure",l1:"Choose the training material",l2:"Filter the samples down to the training set",l3:"",l4:"Lines 147–185",note:"",ref:"aDNA pipeline"},
+  n04:{name:"Coordinate jitter",kind:"procedure",l1:"Augment spatial coordinates",l2:"Add jitter to geographic coordinates",l3:"",l4:"Lines 186–227",note:"Data-augmentation step.",ref:"aDNA pipeline"},
+  n05:{name:"Temporal jitter",kind:"procedure",l1:"Augment temporal values",l2:"Add jitter to date / BP values",l3:"",l4:"Lines 228–266",note:"Data-augmentation step.",ref:"aDNA pipeline"},
+  n06:{name:"Select outliers-to-test",kind:"procedure",l1:"Set aside a test set",l2:"Select the outlier samples to be tested",l3:"",l4:"Lines 267–283",note:"",ref:"aDNA pipeline"},
+  n07:{name:"Plot sample map",kind:"procedure",l1:"Inspect the sample distribution",l2:"Plot an interactive sample map",l3:"",l4:"Lines 284–339 · Plotly",
+    note:"Diagnostic step: emits a by-product and passes the data through unchanged.",ref:"aDNA pipeline"},
+  n08:{name:"EDA plots",kind:"procedure",l1:"Explore the data",l2:"Produce exploratory plots (PCA, bias / distribution)",l3:"",l4:"Lines 340–434",
+    note:"Diagnostic step: emits by-products, data passes through.",ref:"aDNA pipeline"},
+  n09:{name:"Spatiotemporal clustering",kind:"procedure",l1:"Find spatiotemporal structure",l2:"Cluster samples in space–time and emit diagnostics",l3:"",l4:"Lines 435–770",
+    note:"Produces cluster features used downstream, plus diagnostic by-products.",ref:"aDNA pipeline"},
+  n10:{name:"Feature engineering & weights",kind:"procedure",l1:"Build model features",l2:"Engineer features and compute feature weights",l3:"",l4:"Lines 771–809",note:"",ref:"aDNA pipeline"},
+  n11:{name:"Model primitives",kind:"procedure",l1:"Define the model",l2:"Construct dataset, network, loss and ensemble primitives",l3:"",l4:"Lines 810–966",note:"",ref:"aDNA pipeline"},
+  n12:{name:"Optuna search",kind:"procedure",l1:"Tune the model",l2:"Search the hyperparameter space",l3:"TPE-based study",l4:"Lines 967–1232 · Optuna",note:"",ref:"aDNA pipeline"},
+  n13:{name:"Apply optimised Date-BP weight",kind:"procedure",l1:"Lock in the tuned setup",l2:"Apply the optimised Date-BP weighting",l3:"",l4:"Lines 1233–1238",note:"",ref:"aDNA pipeline"},
+  n14:{name:"CV training & evaluation",kind:"procedure",l1:"Train and validate",l2:"Cross-validated training and evaluation; save folds",l3:"k-fold cross-validation",l4:"Lines 1239–1568",note:"",ref:"aDNA pipeline"},
+  n15:{name:"Outlier inference & mapping",kind:"procedure",l1:"Locate the samples",l2:"Infer outlier origins with uncertainty and map them",l3:"bootstrap uncertainty",l4:"Lines 1569–2128",note:"",ref:"aDNA pipeline"},
+  n16:{name:"Outlier batch loop",kind:"procedure",l1:"Run inference at scale",l2:"Batch-loop the outlier inference",l3:"",l4:"Lines 2129–2184",note:"",ref:"aDNA pipeline"},
+  n17:{name:"Compile report (optional)",kind:"procedure",l1:"Report the results",l2:"(Commented) time-stratified analysis + final report",l3:"",l4:"Lines 2185–2395 · commented",
+    note:"A specified but un-executed step: the code is commented out, so its outputs are planned rather than materialized — soft by-products.",ref:"aDNA pipeline"},
+
+  /* ---- connectors on the spine ---- */
+  config:{name:"IO config & paths",kind:"product",mat:0,l1:"Run configuration",l2:"Paths, parameters and file handles",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  combined:{name:"combined_dataset",kind:"product",mat:1,l1:"The merged input table",l2:"Eigenvectors + metadata in one table",l3:"",l4:"combined_dataset.csv",
+    note:"Hard connector: written to disk and consumed by the filtering step.",ref:"aDNA pipeline"},
+  filtered:{name:"Filtered training set",kind:"product",mat:0,l1:"The training material",l2:"Samples after filtering",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  coordjit:{name:"Coordinate-jittered set",kind:"product",mat:0,l1:"Spatially augmented samples",l2:"Training set with jittered coordinates",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  timejit:{name:"Time-jittered set",kind:"product",mat:0,l1:"Temporally augmented samples",l2:"Training set with jittered dates",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  split:{name:"Train / test split",kind:"product",mat:0,l1:"Training and test partitions",l2:"Training set and selected outlier-test set",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  eda1:{name:"Samples (passed through)",kind:"product",mat:0,l1:"The data, unchanged",l2:"Same sample set, after a diagnostic step",l3:"",l4:"",note:"Soft pass-through connector: the preceding plot step does not transform the data.",ref:"aDNA pipeline"},
+  eda2:{name:"Samples (passed through)",kind:"product",mat:0,l1:"The data, unchanged",l2:"Same sample set, after a diagnostic step",l3:"",l4:"",note:"Soft pass-through connector.",ref:"aDNA pipeline"},
+  clustfeat:{name:"Cluster features",kind:"product",mat:0,l1:"Spatiotemporal structure",l2:"Cluster assignments / features for the model",l3:"",l4:"",note:"Soft connector feeding feature engineering.",ref:"aDNA pipeline"},
+  featw:{name:"feature_weights",kind:"product",mat:1,l1:"Per-feature importance",l2:"Engineered feature weights",l3:"",l4:"feature_weights.csv",note:"Hard connector consumed by the model primitives.",ref:"aDNA pipeline"},
+  modelspec:{name:"Model spec",kind:"product",mat:0,l1:"The configured model",l2:"Dataset / NN / loss / ensemble objects",l3:"",l4:"",note:"Soft connector (in-memory model objects).",ref:"aDNA pipeline"},
+  besthp:{name:"best_hyperparams",kind:"product",mat:1,l1:"The tuned settings",l2:"Best hyperparameters from the search",l3:"",l4:"best_hyperparams.txt",note:"Hard connector consumed by the weighting / training steps.",ref:"aDNA pipeline"},
+  weighted:{name:"Weighted setup",kind:"product",mat:0,l1:"Tuned, weighted configuration",l2:"Model setup with the Date-BP weight applied",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  folds:{name:"Trained CV folds",kind:"product",mat:1,l1:"The trained model(s)",l2:"Saved cross-validation fold artifacts",l3:"",l4:"fold artifacts",note:"Hard connector: trained folds consumed by outlier inference.",ref:"aDNA pipeline"},
+  outliers:{name:"Outlier scores",kind:"product",mat:0,l1:"Estimated origins + uncertainty",l2:"Per-sample outlier scores and uncertainty",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  batched:{name:"Batched results",kind:"product",mat:0,l1:"Inference run at scale",l2:"Outlier results across the batch loop",l3:"",l4:"",note:"Soft connector (in-memory).",ref:"aDNA pipeline"},
+  report:{name:"Final report",kind:"product",mat:0,l1:"The reported findings",l2:"(Commented) report + artifacts",l3:"",l4:"",
+    note:"Soft terminal product: the report step is commented out, so the output is specified but unmaterialized — like a still-unwritten paper.",ref:"aDNA pipeline"},
+
+  /* ---- by-products (below the spine) ---- */
+  bp_html:{name:"sample_distribution.html",kind:"byproduct",mat:1,l1:"Interactive sample map",l2:"Plotly map of the sample distribution",l3:"",l4:"sample_distribution.html",note:"By-product: written but not consumed downstream.",ref:"aDNA pipeline"},
+  bp_pca:{name:"PCA plots",kind:"byproduct",mat:1,l1:"Exploratory PCA views",l2:"PCA scatter plots",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_bias:{name:"Bias / distribution plots",kind:"byproduct",mat:1,l1:"Distribution checks",l2:"Bias and distribution plots",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_cdiag:{name:"Cluster diagnostics",kind:"byproduct",mat:1,l1:"Clustering quality views",l2:"Cluster diagnostic plots",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_cheat:{name:"Cluster heatmap",kind:"byproduct",mat:1,l1:"Cluster overview",l2:"Cluster heatmap",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_hpimp:{name:"hyperparameter_importance.png",kind:"byproduct",mat:1,l1:"Tuning diagnostics",l2:"Hyperparameter-importance plot",l3:"",l4:"hyperparameter_importance.png",note:"By-product of the Optuna search.",ref:"aDNA pipeline"},
+  bp_cvres:{name:"CV results",kind:"byproduct",mat:1,l1:"Validation metrics",l2:"Cross-validation results",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_cvplot:{name:"CV plots",kind:"byproduct",mat:1,l1:"Validation views",l2:"Cross-validation plots",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_boot:{name:"Outlier bootstrap plots",kind:"byproduct",mat:1,l1:"Uncertainty views",l2:"Bootstrap plots for the outliers",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_dens:{name:"Density maps",kind:"byproduct",mat:1,l1:"Spatial likelihood",l2:"Origin density maps",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_summ:{name:"Summary plots",kind:"byproduct",mat:1,l1:"Result summary",l2:"Summary plots",l3:"",l4:"",note:"By-product.",ref:"aDNA pipeline"},
+  bp_cres:{name:"(commented) results",kind:"byproduct",mat:0,l1:"Planned result tables",l2:"Commented-out result outputs",l3:"",l4:"",note:"Soft by-product: planned but not produced (commented out).",ref:"aDNA pipeline"},
+  bp_crep:{name:"(commented) report",kind:"byproduct",mat:0,l1:"Planned report",l2:"Commented-out final report",l3:"",l4:"",note:"Soft by-product: planned but not produced.",ref:"aDNA pipeline"},
+  bp_cpick:{name:"(commented) pickle",kind:"byproduct",mat:0,l1:"Planned serialised output",l2:"Commented-out pickle dump",l3:"",l4:"",note:"Soft by-product: planned but not produced.",ref:"aDNA pipeline"},
+
+  /* ---- L1 (Vision) aggregated modules ---- */
+  samples:{name:"aDNA samples",kind:"product",mat:1,l1:"The ancient-DNA samples to be located",l2:"smartPCA eigenvectors merged with metadata",l3:"",l4:"",
+    note:"The instance begins from a pre-existing materialized product (the smartPCA output).",ref:"pipeline input"},
+  prep:{name:"Prepare data",kind:"procedure",l1:"Get the samples into analysable shape",l2:"Aggregates: init, load & merge, filter, jitter, select (N01–N06)",l3:"",l4:"Lines 7–283",
+    note:"Upward aggregation of the preparation chain.",ref:"aDNA pipeline"},
+  ready:{name:"Analysis-ready samples",kind:"product",mat:0,l1:"Prepared training / test data",l2:"(= filtered, augmented, split sets at L2)",l3:"",l4:"",note:"",ref:"aDNA pipeline"},
+  explore:{name:"Explore & cluster",kind:"procedure",l1:"Find structure and build features",l2:"Aggregates: sample map, EDA plots, spatiotemporal clustering (N07–N09)",l3:"",l4:"Lines 284–770",note:"",ref:"aDNA pipeline"},
+  features:{name:"Cluster-informed features",kind:"product",mat:0,l1:"Features for the model",l2:"(= cluster features at L2)",l3:"",l4:"",note:"",ref:"aDNA pipeline"},
+  model:{name:"Train geo-origin model",kind:"procedure",l1:"Learn to predict geographic origin",l2:"Aggregates: feature weights, model primitives, Optuna, weighting, CV training (N10–N14)",l3:"",l4:"Lines 771–1568",note:"",ref:"aDNA pipeline"},
+  trained:{name:"Trained model + folds",kind:"product",mat:1,l1:"The fitted model",l2:"(= trained CV folds at L2)",l3:"",l4:"fold artifacts",note:"",ref:"aDNA pipeline"},
+  infer:{name:"Infer & map origins",kind:"procedure",l1:"Estimate where the outliers come from",l2:"Aggregates: outlier inference, uncertainty, mapping, batch loop (N15–N16)",l3:"",l4:"Lines 1569–2184",note:"",ref:"aDNA pipeline"},
+  origins:{name:"Outlier origins + maps",kind:"product",mat:1,l1:"Estimated origins with uncertainty",l2:"(= outlier scores + density / summary maps at L2)",l3:"",l4:"",note:"",ref:"aDNA pipeline"}
+};
+/* ---------- layouts ---------- */
+const PROD_HW=58, PROD_HH=40, PROC_HW=68, PROC_HH=34;
+function hw(k){return (k==='procedure')?PROC_HW:PROD_HW}
+function hh(k){return (k==='procedure')?PROC_HH:PROD_HH}
+
+const GAP=0;
+function chainPos(seq, startX, y){
+  const out=[]; let x=startX;
+  seq.forEach((id,i)=>{
+    const h=hw(D[id].kind);
+    if(i===0) x = startX + h;
+    else x = out[i-1].x + hw(D[seq[i-1]].kind) + GAP + h;
+    out.push({id,x,y});
+  });
+  return out;
+}
+function xmap(ns){const m={};ns.forEach(n=>m[n.id]=n.x);return m;}
+
+const MY2=380;
+const L2spine=['n01','config','n02','combined','n03','filtered','n04','coordjit','n05','timejit',
+  'n06','split','n07','eda1','n08','eda2','n09','clustfeat','n10','featw','n11','modelspec','n12',
+  'besthp','n13','weighted','n14','folds','n15','outliers','n16','batched','n17','report'];
+const L2nodes=chainPos(L2spine,60,MY2);
+const X2=xmap(L2nodes);
+function bpN(id,prod,slot){return {id,x:X2[prod],y:MY2+150+slot*88};}
+const L2bp=[bpN('bp_html','n07',0),
+  bpN('bp_pca','n08',0),bpN('bp_bias','n08',1),
+  bpN('bp_cdiag','n09',0),bpN('bp_cheat','n09',1),
+  bpN('bp_hpimp','n12',0),
+  bpN('bp_cvres','n14',0),bpN('bp_cvplot','n14',1),
+  bpN('bp_boot','n15',0),bpN('bp_dens','n15',1),bpN('bp_summ','n15',2),
+  bpN('bp_cres','n17',0),bpN('bp_crep','n17',1),bpN('bp_cpick','n17',2)];
+const L2src=[{id:'evec',x:X2['n02']-72,y:200},{id:'meta',x:X2['n02']+72,y:200}];
+
+const L1nodes=chainPos(['samples','prep','ready','explore','features','model','trained','infer','origins','n17','report'],90,215);
+const X1=xmap(L1nodes);
+
+const VIEWS = {
+  L2:{ vb:[0,0, X2['report']+90, 770],
+    nodes:[...L2nodes, ...L2src, ...L2bp],
+    edges:[
+      ['evec','n02','branch'],['meta','n02','branch'],
+      ['n07','bp_html','bp'],
+      ['n08','bp_pca','bp'],['n08','bp_bias','bp'],
+      ['n09','bp_cdiag','bp'],['n09','bp_cheat','bp'],
+      ['n12','bp_hpimp','bp'],
+      ['n14','bp_cvres','bp'],['n14','bp_cvplot','bp'],
+      ['n15','bp_boot','bp'],['n15','bp_dens','bp'],['n15','bp_summ','bp'],
+      ['n17','bp_cres','bp'],['n17','bp_crep','bp'],['n17','bp_cpick','bp']
+    ]},
+  L1:{ vb:[0,0, X1['report']+90, 440],
+    nodes:L1nodes,
+    edges:[]}
+};
+/* ---------- rendering ---------- */
+const svg = document.getElementById('graph');
+const SVGNS='http://www.w3.org/2000/svg';
+let cur='L2', showL4=false, selId=null, pos={};
+
+function el(tag,attrs,txt){const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(txt!=null)e.textContent=txt;return e;}
+function hexD(cx,cy,w,h){const k=12;return `M${cx-w/2+k},${cy-h/2} H${cx+w/2-k} L${cx+w/2},${cy} L${cx+w/2-k},${cy+h/2} H${cx-w/2+k} L${cx-w/2},${cy} Z`;}
+
+function clip(x1,y1,x2,y2,box){ // shorten segment so it ends at the box around (x2,y2)
+  const dx=x2-x1, dy=y2-y1;
+  const kx = Math.abs(dx)<1e-6?1e9:box.hw/Math.abs(dx);
+  const ky = Math.abs(dy)<1e-6?1e9:box.hh/Math.abs(dy);
+  const k = Math.min(kx,ky); const t=1-k;
+  return [x1+t*dx, y1+t*dy];
+}
+
+function render(){
+  const V=VIEWS[cur];
+  svg.setAttribute('viewBox',V.vb.join(' '));
+  if(zoom==='fit'){ svg.removeAttribute('width'); svg.style.width='100%'; svg.style.height='auto'; }
+  else { svg.style.width=V.vb[2]+'px'; svg.style.height=V.vb[3]+'px'; }
+  svg.innerHTML='';
+  // defs (arrow markers)
+  const defs=el('defs');
+  [['arr','#5b6b78'],['arrc','#b06f1e'],['arrb','#2f6f9f']].forEach(([id,c])=>{
+    const m=el('marker',{id,viewBox:'0 0 10 10',refX:8,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'});
+    m.appendChild(el('path',{d:'M0,0 L10,5 L0,10 z',fill:c}));defs.appendChild(m);
+  });
+  svg.appendChild(defs);
+
+  pos={}; V.nodes.forEach(n=>pos[n.id]={x:n.x,y:n.y, key:(n.as||n.id), kind:D[n.as||n.id].kind});
+
+  // edges
+  V.edges.forEach(([a,b,type])=>{
+    const A=pos[a],B=pos[b];
+    const bBox={hw:hw(B.kind)+8,hh:hh(B.kind)+8};
+    const aBox={hw:hw(A.kind)+2,hh:hh(A.kind)+2};
+    const [sx,sy]=clip(B.x,B.y,A.x,A.y,aBox);
+    const [ex,ey]=clip(A.x,A.y,B.x,B.y,bBox);
+    let stroke='#5b6b78', dash='', marker='arr', wdt=1.8;
+    if(type==='ctx'){stroke='#b06f1e';dash='5 4';marker='arrc';}
+    else if(type==='branch'){stroke='#2f6f9f';marker='arrb';}
+    else if(type==='bp'){stroke='#8a93a0';dash='4 4';marker='arr';wdt=1.5;}
+    const ln=el('line',{x1:sx,y1:sy,x2:ex,y2:ey,stroke,'stroke-width':wdt,'marker-end':`url(#${marker})`});
+    if(dash)ln.setAttribute('stroke-dasharray',dash);
+    svg.appendChild(ln);
+  });
+
+  // nodes
+  V.nodes.forEach(n=>{
+    const key=n.as||n.id, d=D[key], k=d.kind;
+    const g=el('g',{class:'node'+(selId===n.id?' sel':''),'data-id':n.id,'data-key':key});
+    let stroke=( k==='context'?'#b06f1e': k==='byproduct'?'#8a93a0':'#2f6f9f');
+    let fill = ( k==='procedure'?'#eaf2f8': k==='context'?'#fbf2e4': k==='byproduct'?'#f0f1f3':'#ffffff');
+    const soft = (k!=='procedure') && !d.mat;
+    if(k==='procedure'){
+      g.appendChild(el('rect',{class:'body',x:n.x-PROC_HW,y:n.y-PROC_HH,width:PROC_HW*2,height:PROC_HH*2,rx:8,fill,stroke,'stroke-width':2}));
+    } else {
+      const p=el('path',{class:'body',d:hexD(n.x,n.y,PROD_HW*2,PROD_HH*2),fill,stroke,'stroke-width':2});
+      if(soft)p.setAttribute('stroke-dasharray','6 4');
+      g.appendChild(p);
+    }
+    // label (wrapped)
+    const label=d.name.replace(' — ',' ');
+    const words=label.split(' '); const lines=[]; let cl='';
+    const max=(k==='procedure'?15:13);
+    words.forEach(w=>{ if((cl+' '+w).trim().length>max){lines.push(cl.trim());cl=w;} else cl=(cl+' '+w).trim(); });
+    if(cl)lines.push(cl);
+    const lh=14.5, y0=n.y-(lines.length-1)*lh/2;
+    lines.forEach((t,i)=>g.appendChild(el('text',{class:'nlabel',x:n.x,y:y0+i*lh,'text-anchor':'middle','dominant-baseline':'middle'},t)));
+    // little kind tag above
+    const tag = k==='procedure'?'procedure': k==='context'?'context': k==='byproduct'?'by-product': (d.mat?'hard':'soft');
+    g.appendChild(el('text',{class:'ntag',x:n.x,y:n.y-hh(k)-7,'text-anchor':'middle',fill:stroke},tag));
+    // L4 badge
+    if(showL4 && d.l4){
+      const bw=Math.min(150, d.l4.length*5.6+14);
+      const bg=el('g',{});
+      bg.appendChild(el('rect',{x:n.x-bw/2,y:n.y+hh(k)+5,width:bw,height:15,rx:7,fill:'#16314a'}));
+      bg.appendChild(el('text',{class:'l4badge',x:n.x,y:n.y+hh(k)+15.5,'text-anchor':'middle'},d.l4));
+      g.appendChild(bg);
+    }
+    g.addEventListener('click',()=>select(n.id));
+    svg.appendChild(g);
+  });
+}
+
+function select(id){
+  selId=id; render();
+  const key = (VIEWS[cur].nodes.find(n=>n.id===id)||{}).as || id;
+  const d=D[key];
+  const matTxt = d.kind==='procedure'?'procedure'
+    : d.kind==='byproduct'?'by-product · '+(d.mat?'materialized':'specified')
+    : d.kind==='context'?'contextual knowledge'
+    : (d.mat?'<span class="mat">materialized · hard connector</span>':'<span class="mat soft">specified · soft connector</span>');
+  const row=(k,v,kc)=>`<div class="lrow"><div class="lk ${v?'':'empty'}">${k}</div><div class="lv ${v?'':'empty'}">${v||'— (encapsulated / not specified)'}</div></div>`;
+  document.getElementById('detail').innerHTML=
+    `<h3>Module detail</h3>
+     <div class="dname">${d.name}</div>
+     <div class="dkind">${d.kind} · ${matTxt}</div>
+     <div class="layers">
+       ${row('L1',d.l1)}${row('L2',d.l2)}${row('L3',d.l3)}${row('L4',d.l4)}
+     </div>
+     ${d.note?`<div class="note">${d.note}</div>`:''}
+     <div class="ref">↳ ${d.ref}</div>`;
+}
+
+/* ---------- controls ---------- */
+let zoom='fit';
+document.getElementById('viewSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  cur=b.dataset.view; selId=null;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+  document.getElementById('detail').innerHTML='<h3>Module detail</h3><p class="hint">Select a module in the graph to see its layer-wise breakdown.</p>';
+  render();
+});
+document.getElementById('zoomSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  zoom=b.dataset.zoom;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+  render();
+});
+document.getElementById('l4toggle').addEventListener('change',e=>{showL4=e.target.checked;render();});
+
+render();
+</script>
+</body>
+</html>
